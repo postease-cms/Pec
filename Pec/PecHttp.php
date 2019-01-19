@@ -1,17 +1,20 @@
 <?php
 
 /**
- * PecHttp (POSTEASE HTTP Client)
- * ---------------------------------------------
- * @version 1.0
- * @since 01.Jan.2019
- * @author h.kuwayama@khiten.co.jp
- * @requirement PHP5 or PHP7 (>=5.2)
- * ---------------------------------------------
- * This SDK sends an HTTP request to the POSTEASE API.
- * You can send a GET request to retrieve a variety of data,
- * send a POST request, and perform some actions, such as emailing.
+ * PecHttp
+ * ------------------------------------------------------------------
+ * POSTEASE CLIENT (SDK FOR POSTEASE API)
+ *
+ *   This SDK sends an HTTP request to the POSTEASE API.
+ *   You can send a GET request to retrieve a variety of data,
+ *   send a POST request, and perform some actions, such as emailing.
+ *
+ * Copyright (c) 2018-present, khiten Inc. and POSTEASE Contributors.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
  */
+
 
 class PecHttp
 {
@@ -24,7 +27,7 @@ class PecHttp
 	private $key;
 	private $params = array();
 	private $response = array();
-	private $response_type = 'Array';
+	private $response_type = 'Object';
 	private $response_header = array();
 	private $response_body = null;
 	
