@@ -1,7 +1,7 @@
 <?php
 
 /**
- * PecHttp (v1.1 Released at 16.Aug.2019)
+ * PecHttp (v1.1 Released at 17.Aug.2019)
  * ------------------------------------------------------------------
  * POSTEASE CLIENT (SDK FOR POSTEASE API)
  *
@@ -405,7 +405,7 @@ class PecHttp
               curl_close($ch);
 
               // Response 2xx, 3xx
-              if ($this->use_advanced_cache) file_put_contents($this->advanced_cache_path . '/data/' . $advanced_cache_file_name, $this->response_body);
+              if ($this->use_advanced_cache) file_put_contents($this->advanced_cache_data_path . "/{$advanced_cache_file_name}", $this->response_body);
               return json_decode($this->response_body, $this->response_type);
             }
           }
