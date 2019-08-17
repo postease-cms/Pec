@@ -1,19 +1,20 @@
 <?php
 
 /**
- * PecHttp
+ * PecHttp (v1.1 Released at 16.Aug.2019)
  * ------------------------------------------------------------------
  * POSTEASE CLIENT (SDK FOR POSTEASE API)
  *
  *   This SDK sends an HTTP request to the POSTEASE API.
  *   You can send a GET request to retrieve a variety of data,
  *   send a POST request, and perform some actions, such as emailing.
+ *   "Advanced cache" has been implemented in version 1.1.
  *
  * Copyright (c) 2018-present, khiten Inc. and POSTEASE Contributors.
  *
  *   Licensed under the Apache License, Version 2.0 (the "License");
  *   http://www.apache.org/licenses/LICENSE-2.0
- *
+ * 
  * ------------------------------------------------------------------
  */
 
@@ -32,8 +33,24 @@ class PecHttp
 	private $response_type = 'Object';
 	private $response_header = array();
 	private $response_body = null;
-	
-	
+
+
+	/*
+	 * advanced cache
+	 */
+	private $use_advanced_cache = 0;
+  private $allow_advanced_cache = 0;
+  private $local_last_modified = 0;
+  private $advanced_cache_path = null;
+  private $advanced_cache_data_path = null;
+  private $local_last_modified_path = null;
+	private $advanced_cache_config = array(
+	  'dir_name'      => 'cache',
+    'data_dir_name' => 'data',
+    'last_modified_file_name' => 'last_modified.txt',
+  );
+
+
 	/*
 	 * variables for post_contact_send_mail
 	 */
@@ -46,17 +63,76 @@ class PecHttp
 	private $post_fields = array();
 	
 	
-	/*
+	/**
 	 * Constructor
 	 */
-	public function __construct($endpoint = null)
+	public function __construct($endpoint = null, $advanced_cache = true)
 	{
-		if ($endpoint)
-		{
-			$this->endpoint = $endpoint;
-		}
+		if ($endpoint) $this->endpoint = $endpoint;
+		if ($advanced_cache) $this->prepareAdvancedCache();
 	}
-	
+
+
+	/**
+	 * Prepare Advanced Cache
+	 */
+	private function prepareAdvancedCache()
+  {
+    // Get Advanced Cache
+    $advances_cache = $this->get('advanced_cache', 'Array');
+    if ($advances_cache['allow'] > 0)
+    {
+      $this->allow_advanced_cache = 1;
+
+      // Prepare Advanced Cache
+      $this->advanced_cache_path      = dirname(__FILE__) . "/{$this->advanced_cache_config['dir_name']}";
+      $this->advanced_cache_data_path = $this->advanced_cache_path . "/{$this->advanced_cache_config['data_dir_name']}";
+      $this->local_last_modified_path = $this->advanced_cache_path . "/{$this->advanced_cache_config['last_modified_file_name']}";
+      if (false === file_exists($this->advanced_cache_path))      mkdir($this->advanced_cache_path, 0777);
+      if (false === file_exists($this->advanced_cache_data_path)) mkdir($this->advanced_cache_data_path, 0777);
+
+      // Check Local Last-modified
+      if (false === file_exists($this->local_last_modified_path))
+      {
+        file_put_contents($this->local_last_modified_path, $advances_cache['last_modified']);
+      }
+      else {
+        $this->local_last_modified = file_get_contents($this->local_last_modified_path);
+        if (! empty($this->local_last_modified))
+        {
+          if (intval($this->local_last_modified) === intval($advances_cache['last_modified']))
+          {
+            $this->use_advanced_cache = 1;
+          }
+          else {
+            // Set New Last-modified and Clear Cache files
+            file_put_contents($this->local_last_modified_path, $advances_cache['last_modified']);
+            if(file_exists($this->advanced_cache_data_path))
+            {
+              $cache_files = glob($this->advanced_cache_data_path . '/*');
+              foreach ($cache_files as $file)
+              {
+                unlink($file);
+              }
+            }
+          }
+        }
+        else {
+          file_put_contents($this->local_last_modified_path, $advances_cache['last_modified']);
+        }
+      }
+    }
+  }
+
+
+  /**
+   * (For Debug)
+   */
+  public function get_use_advanced_cache()
+  {
+    return $this->use_advanced_cache;
+  }
+
 	
 	/**
 	 * Set Endpoint
@@ -275,57 +351,69 @@ class PecHttp
 			// Check Endpoint (are set)
 			if ($this->endpoint)
 			{
-				try{
-					// Check Connection
-					if (false === $ch = curl_init($this->endpoint . $this->generateQueryString()))
-					{
-						return $this->generateErrorResponse(0, 'Connection failed');
-					}
-					else {
-						$http_header = array(
-							'Content-Type: application/json',
-						);
-						curl_setopt_array($ch,
-							array(
-								CURLOPT_HEADER => true,
-								CURLOPT_RETURNTRANSFER => true,
-								CURLOPT_TIMECONDITION => CURL_TIMECOND_IFMODSINCE,
-								CURLOPT_HTTPHEADER => $http_header,
-							)
-						);
-						$this->response = curl_exec($ch);
-						$info = curl_getinfo($ch);
-						$header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-						$this->response_header = substr($this->response, 0, $header_size);
-						$this->response_body = substr($this->response, $header_size);
-						
-						// Curl Error
-						if (curl_errno($ch))
-						{
-							return $this->generateErrorResponse($info['http_code'], curl_error($ch));
-						}
-						
-						// Not 2xx, 3xx
-						$decoded_body = json_decode($this->response_body, true);
-						if (empty($decoded_body['hasError']) && $info['http_code'] >= 400)
-						{
-							if ($info['http_code'] == '404')
-							{
-								return $this->generateErrorResponse((string)$info['http_code'], 'Invalid endpoint (Check URL)');
-							}
-							else
-							{
-								return $this->generateErrorResponse($info['http_code'], 'An unexpected error occurred');
-							}
-						}
-						curl_close($ch);
-						return json_decode($this->response_body, $this->response_type);
-					}
-				}
-				catch (Exception $e)
-				{
-					return $this->generateErrorResponse(0, 'An exception occurred');
-				}
+			  // Check and Use Advanced Cache
+        $advanced_cache_file_name = hash('tiger128,4', $this->generateQueryString()) . '.json';
+        if ($this->use_advanced_cache && file_exists($this->advanced_cache_data_path . "/{$advanced_cache_file_name}"))
+        {
+          $this->response_body = file_get_contents($this->advanced_cache_data_path . "/{$advanced_cache_file_name}");
+          return json_decode($this->response_body, $this->response_type);
+        }
+        else {
+          try{
+            // Check Connection
+            if (false === $ch = curl_init($this->endpoint . $this->generateQueryString()))
+            {
+              return $this->generateErrorResponse(0, 'Connection failed');
+            }
+            else {
+              $http_header = array(
+                'Content-Type: application/json',
+              );
+              curl_setopt_array($ch,
+                array(
+                  CURLOPT_HEADER => true,
+                  CURLOPT_RETURNTRANSFER => true,
+                  CURLOPT_TIMECONDITION => CURL_TIMECOND_IFMODSINCE,
+                  CURLOPT_HTTPHEADER => $http_header,
+                )
+              );
+              $this->response = curl_exec($ch);
+              $info = curl_getinfo($ch);
+              $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+              $this->response_header = substr($this->response, 0, $header_size);
+              $this->response_body = substr($this->response, $header_size);
+
+              // Curl Error
+              if (curl_errno($ch))
+              {
+                return $this->generateErrorResponse($info['http_code'], curl_error($ch));
+              }
+
+              // Response Not 2xx, 3xx
+              $decoded_body = json_decode($this->response_body, true);
+              if (empty($decoded_body['hasError']) && $info['http_code'] >= 400)
+              {
+                if ($info['http_code'] == '404')
+                {
+                  return $this->generateErrorResponse((string)$info['http_code'], 'Invalid endpoint (Check URL)');
+                }
+                else
+                {
+                  return $this->generateErrorResponse($info['http_code'], 'An unexpected error occurred');
+                }
+              }
+              curl_close($ch);
+
+              // Response 2xx, 3xx
+              if ($this->use_advanced_cache) file_put_contents($this->advanced_cache_path . '/data/' . $advanced_cache_file_name, $this->response_body);
+              return json_decode($this->response_body, $this->response_type);
+            }
+          }
+          catch (Exception $e)
+          {
+            return $this->generateErrorResponse(0, 'An exception occurred');
+          }
+        }
 			}
 			else {
 				return $this->generateErrorResponse(0, 'Endpoint not set');
