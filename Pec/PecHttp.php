@@ -1,7 +1,7 @@
 <?php
 
 /**
- * PecHttp (v1.3 Released at 06.Aug.2020)
+ * PecHttp (v1.4 Released at 23.May.2021)
  * ------------------------------------------------------------------
  * POSTEASE CLIENT (SDK FOR POSTEASE API)
  *
@@ -52,15 +52,23 @@ class PecHttp
 	
 	
 	/*
-	 * variables for post_contact_send_mail
+	 * variables for postl
 	 */
 	private $action;
+    private $post_fields = array();
+
+	// Contact
 	private $contact_target;
 	private $contact_data;
 	private $contact_items;
+
+	// Mail
 	private $config_mail;
 	private $config_smtp;
-	private $post_fields = array();
+
+	// Comment
+    private $comment_data;
+
 	
 	
 	/**
@@ -336,6 +344,12 @@ class PecHttp
 		$this->resource = 'tags';
 		return $this->get('tags', $response_type);
 	}
+
+    public function get_external_auth_user($response_type = null)
+    {
+        $this->resource = 'external_auth_user';
+        return $this->get('external_auth_user', $response_type);
+    }
 	
 	
 	/**
@@ -460,8 +474,25 @@ class PecHttp
 	{
 		return $this->set_contact_data($data);
 	}
-	
-	
+
+
+    /**
+     * Set Comment Data
+     * [POST COMMENT]
+     * -----------------------------------------------
+     * @param array $comment_data
+     * @return $this
+     */
+    public function set_comment_data($comment_data)
+    {
+        if (! empty($comment_data) && is_array($comment_data))
+        {
+            $this->comment_data = $comment_data;
+        }
+        return $this;
+    }
+
+
 	/**
 	 * Set Contact Data
 	 * [POST DATA / SEND MAIL]
@@ -550,6 +581,14 @@ class PecHttp
 		{
 			$this->post_fields['contact_target'] = $this->contact_target;
 		}
+        if (! empty($this->post_data))
+        {
+            $this->post_fields['post_data'] = $this->post_data;
+        }
+		if (! empty($this->comment_data))
+        {
+            $this->post_fields['comment_data'] = $this->comment_data;
+        }
 		if (! empty($this->contact_data))
 		{
 			$this->post_fields['contact_data'] = $this->contact_data;
@@ -568,7 +607,39 @@ class PecHttp
 		}
 		return http_build_query($this->post_fields);
 	}
-	
+
+
+    /**
+     * Post Post
+     * (Use post_data_send_mail)
+     * [POST DATA]
+     * -----------------------------------------------
+     * @param string $response_type
+     * @return int
+     */
+    public function post_post($response_type = null)
+    {
+        $this->resource = 'post';
+        $this->action = 'post_post';
+        return $this->post_data_send_mail($response_type);
+    }
+
+
+	/**
+     * Post Comment
+     * (Use post_data_send_mail)
+     * [POST DATA]
+     * -----------------------------------------------
+     * @param string $response_type
+     * @return int
+     */
+    public function post_comment($response_type = null)
+    {
+        $this->resource = 'comment';
+        $this->action = 'post_comment';
+        return $this->post_data_send_mail($response_type);
+    }
+
 	
 	/**
 	 * Post Contact
@@ -616,8 +687,8 @@ class PecHttp
 		$this->action = 'send_mail';
 		return $this->post_data_send_mail($response_type);
 	}
-	
-	
+
+
 	/**
 	 * Post Data Send Mail
 	 * -----------------------------------------------
