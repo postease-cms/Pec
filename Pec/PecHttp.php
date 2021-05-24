@@ -1,7 +1,7 @@
 <?php
 
 /**
- * PecHttp (v1.4 Released at 23.May.2021)
+ * PecHttp (v1.5 Released at 24.May.2021)
  * ------------------------------------------------------------------
  * POSTEASE CLIENT (SDK FOR POSTEASE API)
  *
@@ -66,7 +66,10 @@ class PecHttp
 	private $config_mail;
 	private $config_smtp;
 
-	// Comment
+	// Comment (get)
+    private $post_id;
+
+	// Comment (post)
     private $comment_data;
 
 	
@@ -208,6 +211,23 @@ class PecHttp
 		}
 		return $this;
 	}
+
+
+    /**
+     * Set Post Id
+     * [GET]
+     * -----------------------------------------------
+     * @param number $post_id
+     * @return object $this
+     */
+    public function set_post_id($post_id)
+    {
+        if (! empty($post_id))
+        {
+            $this->post_id = $post_id;
+        }
+        return $this;
+    }
 	
 	
 	/**
@@ -251,6 +271,11 @@ class PecHttp
 			$query_string .= ($query_string) ? '&' : '?';
 			$query_string .= 'key=' . $this->key;
 		}
+        if (! empty($this->post_id))
+        {
+            $query_string .= ($query_string) ? '&' : '?';
+            $query_string .= 'post_id=' . $this->post_id;
+        }
 		if (! empty($this->params))
 		{
 			foreach ($this->params as $key => $value)
